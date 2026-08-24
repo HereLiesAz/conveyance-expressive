@@ -54,23 +54,32 @@ Example composable manifest referencing this library:
   vocabulary resolves sensibly here too. Defaults to `FontFamily.Default`; M3's own default is
   Roboto specifically, but bundling that typeface is a per-host asset decision this library
   doesn't make for you, the same choice `conveyance-h2g2` makes for Jost.
-- **`Templates`** (`Templates.kt`) -- the `templateId` registry. Three templates:
-  `expressive.badge.shape` (a static labeled polygon badge), `expressive.tile.title` (a
-  rectangular polygon tile, title+`subtitle` two-line form -- the same layout
-  `conveyance-h2g2`'s `h2g2.tile.record` offers, in M3's own type scale), and
-  `expressive.control.morph` -- an `Offer`-backed control whose clip shape morphs from its
-  resting polygon toward a busier one (`cookie9Sided`) while the act is `ActState.Yielding`,
-  driven by `ActScope.yielding`'s own live progress value, and snaps back at rest. The shape
-  reacts to the framework's own exposed state; the underlying `Signature` (position, displacement,
-  residue) stays entirely Conveyance's.
+- **`Templates`** (`Templates.kt`) -- the `templateId` registry. Four templates:
+  - `expressive.badge.shape` -- a static labeled polygon badge.
+  - `expressive.badge.compound` -- a smaller accent polygon (`burst`, or `spark` when the
+    primary shape *is* `burst`) peeking from behind the primary shape's bottom-right corner, in
+    a different `ExpressiveRole` than the primary's own -- the layered-shape composition M3
+    Expressive's own reference material uses, rather than one polygon standing alone.
+  - `expressive.tile.title` -- a rectangular polygon tile, title+`subtitle` two-line form -- the
+    same layout `conveyance-h2g2`'s `h2g2.tile.record` offers, in M3's own type scale.
+  - `expressive.control.morph` -- an `Offer`-backed control with **two independent morphs**: its
+    clip shape morphs from resting polygon toward a busier one (`cookie9Sided`) while the act is
+    `ActState.Yielding`, driven live by `ActScope.yielding`'s own progress value; once
+    `ActState.Settled`, a *second* morph takes over -- from the fully busy shape toward
+    `heart`, animated smoothly over 500ms rather than snapped, since `Settled` carries no
+    progress value of its own to drive it live. Snaps back to the plain resting shape at any
+    other state. The shape reacts to the framework's own exposed state; the underlying
+    `Signature` (position, displacement, residue) stays entirely Conveyance's.
 
 ## Status
 
-Covers M3 Expressive's full shape and type vocabulary now (35 polygons, 15 type steps), with
-three templates spanning static/labeled/morphing use. What's still not here: more
-motion-reactive shapes beyond the one Yield-driven morph (a settle-triggered morph, a
-drag-reactive one), and no template yet uses more than one polygon per element (a compound shape
-built from two or three overlapping `MaterialShapes`, which M3 Expressive's own examples do).
+Covers M3 Expressive's full shape and type vocabulary (35 polygons, 15 type steps), a
+compound (two-polygon) composition, and two independent state-driven morphs on the one control
+template. What's still not here: a drag-reactive morph (shape responding to gesture velocity the
+way `conveyance-liquid`'s `liquid.drop.drag` responds to drag physics), and
+`expressive.badge.compound`'s accent shape/role are fixed choices rather than something a manifest
+author can vary -- nothing in the composable manifest's `hue`/`surface`/`scale` vocabulary names
+a *second* shape or role to pick from.
 
 ## Using it
 

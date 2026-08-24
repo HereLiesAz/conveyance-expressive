@@ -2,7 +2,10 @@ package com.hereliesaz.conveyance.expressive
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.toPath
@@ -27,7 +30,8 @@ import com.hereliesaz.conveyance.compose.Offer
  * supplies once a host has resolved it against this library's [Templates.registry] and built the
  * live [Act] the element performs. The manifest's `hue` string is a rank ("primary"/"secondary"/
  * "tertiary" -- see [ExpressiveRole]); `surface` names a shape (see [ExpressiveSurface]);
- * `templateId` is the registry lookup key and isn't repeated here.
+ * `scale` names a type step (see [ExpressiveType.step]); `templateId` is the registry lookup key
+ * and isn't repeated here. [subtitle] is optional -- only `expressive.tile.title` uses it.
  */
 data class ComposableRequest(
     val act: Act,
@@ -35,6 +39,7 @@ data class ComposableRequest(
     val surface: String,
     val scale: String,
     val label: String,
+    val subtitle: String? = null,
 )
 
 /**
@@ -46,10 +51,11 @@ object Templates {
     val registry: Map<String, @Composable (ComposableRequest) -> Unit> = mapOf(
         "expressive.badge.shape" to { request -> ShapeBadge(request) },
         "expressive.control.morph" to { request -> MorphControl(request) },
+        "expressive.tile.title" to { request -> TitleTile(request) },
     )
 }
 
-/** A static M3-Expressive-polygon-shaped badge, colored by [ComposableRequest.rank]. */
+/** A static M3-Expressive-polygon-shaped badge, colored by [ComposableRequest.rank], labeled at [ComposableRequest.scale]. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ShapeBadge(request: ComposableRequest) {
@@ -62,7 +68,41 @@ fun ShapeBadge(request: ComposableRequest) {
                 .background(ExpressiveRole.containerOf(request.rank)),
             contentAlignment = Alignment.Center,
         ) {
-            BasicText(text = request.label)
+            BasicText(
+                text = request.label,
+                style = expressiveType().step(request.scale)
+                    .copy(color = ExpressiveRole.onContainerOf(request.rank)),
+            )
+        }
+    }
+}
+
+/**
+ * A rectangular [ExpressiveSurface]-shaped tile, [ComposableRequest.label] set at [titleMedium]
+ * (or [ComposableRequest.scale] if given a real type-role name) with [ComposableRequest.subtitle]
+ * beneath it at [bodyMedium] -- the same title+detail two-line form `conveyance-h2g2`'s
+ * `h2g2.tile.record` offers, in M3's own type scale.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun TitleTile(request: ComposableRequest) {
+    val shape = ExpressiveSurface.shapeOf(request.surface)
+    val onContainer = ExpressiveRole.onContainerOf(request.rank)
+    val type = expressiveType()
+    Offer(act = request.act, modifier = Modifier.wrapContentSize()) {
+        Box(
+            modifier = Modifier
+                .clip(shape)
+                .background(ExpressiveRole.containerOf(request.rank))
+                .padding(horizontal = 20.dp, vertical = 14.dp),
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            Column {
+                BasicText(text = request.label, style = type.step(request.scale).copy(color = onContainer))
+                request.subtitle?.let {
+                    BasicText(text = it, style = type.bodyMedium.copy(color = onContainer))
+                }
+            }
         }
     }
 }
@@ -105,7 +145,11 @@ fun MorphControl(request: ComposableRequest) {
                 .background(ExpressiveRole.containerOf(request.rank)),
             contentAlignment = Alignment.Center,
         ) {
-            BasicText(text = request.label)
+            BasicText(
+                text = request.label,
+                style = expressiveType().step(request.scale)
+                    .copy(color = ExpressiveRole.onContainerOf(request.rank)),
+            )
         }
     }
 }

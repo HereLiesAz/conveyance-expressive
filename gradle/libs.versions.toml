@@ -7,8 +7,14 @@ compileSdk = "37"
 compileSdkMinor = "1"
 minSdk = "24"
 jvmToolchain = "21"
+# Pinned to Conveyance's own version -- this is what ships MaterialShapes/Morph. Used as
+# geometry only: the shape/motion vocabulary here is this library's own, never M3's ColorScheme
+# or component set. graphics-shapes (Morph, RoundedPolygon) has been commonMain-safe since 1.1.0,
+# well before this alpha, so it's declared in commonMain rather than androidMain-only.
+androidxMaterial3 = "1.5.0-alpha26"
 
 [libraries]
+androidx-material3 = { module = "androidx.compose.material3:material3", version.ref = "androidxMaterial3" }
 
 [plugins]
 compose = { id = "org.jetbrains.compose", version.ref = "compose" }

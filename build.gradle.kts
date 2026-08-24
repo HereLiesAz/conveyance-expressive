@@ -28,6 +28,10 @@ kotlin {
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.ui)
+            // MaterialShapes/Morph only -- geometry, never M3's ColorScheme or components.
+            // Safe in commonMain: graphics-shapes (which Morph/RoundedPolygon come from) has
+            // been KMP-friendly since 1.1.0, well before this pinned alpha.
+            implementation(libs.androidx.material3)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))

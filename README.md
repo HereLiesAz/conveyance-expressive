@@ -12,7 +12,7 @@ artifact a composable package's `library` block points at -- the `.azp` package 
 authored and published separately, wherever its author chooses; this repo does not need to hold
 one.
 
-Example composable manifest referencing this library, once it has a real template:
+Example composable manifest referencing this library:
 
 ```jsonc
 {
@@ -26,16 +26,38 @@ Example composable manifest referencing this library, once it has a real templat
   "composable": {
     "library": { "group": "com.hereliesaz.conveyance", "artifact": "conveyance-expressive", "version": "0.1.0" },
     "elements": [
-      { "id": "example", "templateId": "<pending>", "hue": "<host-defined>", "surface": "<host-defined>", "scale": "<host-defined>", "act": "<host-defined>", "jobs": ["<what this element does>"] }
+      { "id": "confirm-record", "templateId": "expressive.control.morph", "hue": "primary", "surface": "pill", "scale": "lead", "act": "create", "jobs": ["confirms a destructive action"] }
     ]
   },
   "files": {}
 }
 ```
 
+## What's here
+
+- **`ExpressiveSurface`** (`Shapes.kt`) -- a curated, named subset of M3 Expressive's 35
+  `MaterialShapes` polygons (`badge`, `pill`, `bloom`, `spark`, `burst`, `gem`, `arch`, `cookie`).
+  `MaterialShapes`/`Morph`/`RoundedPolygon` (`androidx.graphics:graphics-shapes`) have been
+  commonMain-safe since 1.1.0 of that artifact, so this is a real KMP dependency, not
+  Android-only, unlike `conveyance-compose`'s own more conservative androidMain-only wiring of
+  the same material3 version.
+- **`ExpressiveRole`** (`Roles.kt`) -- M3's primary/secondary/tertiary container color roles.
+  Chosen deliberately over h2g2's per-entity `hueOf` hashing: M3 Expressive's whole color-role
+  model already lines up with Conveyance's own `Rank` (`Channel.Hue` carries
+  `Meaning.SemanticRank`), so this composable-set's `hue` manifest field selects a *rank*, not a
+  hashed identity.
+- **`Templates`** (`Templates.kt`) -- the `templateId` registry. Two templates so far:
+  `expressive.badge.shape` (a static polygon badge) and `expressive.control.morph` -- an
+  `Offer`-backed control whose clip shape morphs from its resting polygon toward a busier one
+  (`cookie`) while the act is `ActState.Yielding`, driven by `ActScope.yielding`'s own live
+  progress value, and snaps back at rest. The shape reacts to the framework's own exposed state;
+  the underlying `Signature` (position, displacement, residue) stays entirely Conveyance's.
+
 ## Status
 
-Scaffold only. `Templates.kt` is an empty registry -- no `templateId` has been designed yet. The concept (port M3 Expressive's shape-morph/motion vocabulary) is set; the token/template design work is next.
+A first real slice, not a finished set. Two templates exist against eight named shapes and three
+color roles; M3 Expressive's actual range (its type scale, its full 35-shape vocabulary, more
+motion-reactive shapes beyond the one Yield-driven morph) is much wider than that.
 
 ## Using it
 

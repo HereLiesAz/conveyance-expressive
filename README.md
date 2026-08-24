@@ -57,29 +57,53 @@ Example composable manifest referencing this library:
 - **`Templates`** (`Templates.kt`) -- the `templateId` registry. Four templates:
   - `expressive.badge.shape` -- a static labeled polygon badge.
   - `expressive.badge.compound` -- a smaller accent polygon (`burst`, or `spark` when the
-    primary shape *is* `burst`) peeking from behind the primary shape's bottom-right corner, in
-    a different `ExpressiveRole` than the primary's own -- the layered-shape composition M3
-    Expressive's own reference material uses, rather than one polygon standing alone.
+    primary shape *is* `burst`) peeking from behind the primary shape -- its own center offset
+    onto the primary's bottom-right corner, so half of it sits hidden and half genuinely extends
+    past the primary's footprint -- in a different `ExpressiveRole` than the primary's own -- the
+    layered-shape composition M3 Expressive's own reference material uses, rather than one
+    polygon standing alone.
   - `expressive.tile.title` -- a rectangular polygon tile, title+`subtitle` two-line form -- the
     same layout `conveyance-h2g2`'s `h2g2.tile.record` offers, in M3's own type scale.
-  - `expressive.control.morph` -- an `Offer`-backed control with **two independent morphs**: its
-    clip shape morphs from resting polygon toward a busier one (`cookie9Sided`) while the act is
-    `ActState.Yielding`, driven live by `ActScope.yielding`'s own progress value; once
-    `ActState.Settled`, a *second* morph takes over -- from the fully busy shape toward
-    `heart`, animated smoothly over 500ms rather than snapped, since `Settled` carries no
-    progress value of its own to drive it live. Snaps back to the plain resting shape at any
-    other state. The shape reacts to the framework's own exposed state; the underlying
-    `Signature` (position, displacement, residue) stays entirely Conveyance's.
+  - `expressive.control.morph` -- an `Offer`-backed control with **three morphs**: its clip shape
+    morphs from resting polygon toward a busier one (`cookie9Sided`) while the act is
+    `ActState.Yielding`, driven live by `ActScope.yielding`'s own progress value when it's known
+    -- and, when the extent is `null` (work whose end isn't known), by a continuous self-driven
+    pulse instead, so an indefinite wait still visibly reads as "something is happening" rather
+    than sitting motionless. Once `ActState.Settled`, a *third* morph takes over -- from the
+    fully busy shape toward `heart`, animated smoothly over 500ms rather than snapped, since
+    `Settled` carries no progress value of its own to drive it live. Snaps back to the plain
+    resting shape at any other state. The shape reacts to the framework's own exposed state; the
+    underlying `Signature` (position, displacement, residue) stays entirely Conveyance's.
 
 ## Status
 
 Covers M3 Expressive's full shape and type vocabulary (35 polygons, 15 type steps), a
-compound (two-polygon) composition, and two independent state-driven morphs on the one control
-template. What's still not here: a drag-reactive morph (shape responding to gesture velocity the
-way `conveyance-liquid`'s `liquid.drop.drag` responds to drag physics), and
-`expressive.badge.compound`'s accent shape/role are fixed choices rather than something a manifest
-author can vary -- nothing in the composable manifest's `hue`/`surface`/`scale` vocabulary names
-a *second* shape or role to pick from.
+compound (two-polygon) composition, and three independent state-driven morphs on the one control
+template (proportional, rhythmic, and settle). What's still not here: a drag-reactive morph
+(shape responding to gesture velocity the way `conveyance-liquid`'s `liquid.drop.drag` responds
+to drag physics), and `expressive.badge.compound`'s accent shape/role are fixed choices rather
+than something a manifest author can vary -- nothing in the composable manifest's
+`hue`/`surface`/`scale` vocabulary names a *second* shape or role to pick from.
+
+An adversarial audit found and this repo has since fixed five real defects, beyond the
+already-known missing click wiring (every template now attaches
+`Modifier.tell(owesTell, weight).clickable { engage() }`, matching
+`conveyance-demo/.../Gallery.kt`'s own wiring): `expressive.control.morph`'s `MorphShape`
+assumed a morphed polygon's coordinates live in `[-1,1]`, but every `MaterialShapes` polygon is
+actually `.normalized()`-ed into `[0,1]` -- the whole shape rendered squeezed into the box's
+bottom-right quadrant. It now maps the path's own measured bounds onto the box, the same way
+material3's real `toShape()` does for a single polygon. `expressive.badge.compound`'s accent was
+positioned entirely inside the primary shape's own footprint, so it was never actually visible
+despite the doc/README both describing it as peeking out -- see the template description above
+for the real fix. `accentRankFor`'s fallback and `ExpressiveRole.containerOf`'s fallback both
+collapsed to `"secondary"` for the same out-of-vocabulary `rank` string, so the accent and primary
+could silently render in the identical color; `accentRankFor` now normalizes through the same
+three-bucket fallback `containerOf` uses before rotating, so the two never collide. Three of
+`ExpressiveType`'s fifteen letter-spacing values (`displayLarge`, `titleMedium`, `bodyMedium`)
+were the older "classic" M3 numbers rather than this library's own pinned material3 version's M3
+Expressive token revision -- corrected to match. And `expressive.control.morph` gave no visual
+indication at all for an indefinite-duration (`extent == null`) `Yielding` act -- it now pulses
+rhythmically instead of sitting on the plain rest shape, matching `ActState.Yielding`'s own doc.
 
 ## Using it
 

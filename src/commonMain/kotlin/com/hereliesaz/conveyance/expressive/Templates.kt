@@ -1,8 +1,14 @@
 package com.hereliesaz.conveyance.expressive
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
@@ -14,6 +20,7 @@ import androidx.compose.material3.toPath
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,6 +36,12 @@ import androidx.graphics.shapes.Morph
 import com.hereliesaz.conveyance.Act
 import com.hereliesaz.conveyance.ActState
 import com.hereliesaz.conveyance.compose.Offer
+import com.hereliesaz.conveyance.compose.tell
+
+// Every template attaches Modifier.tell(owesTell, weight).clickable { engage() } to its outermost
+// shape -- the wiring Conveyance's own demo (conveyance-demo/.../Gallery.kt) uses at every real
+// Offer call site. Without it a template still renders correctly but is inert: nothing engages
+// the act on tap, so ActState can never leave Ready through this template alone.
 
 /**
  * What a `kind: "composable"` `.azp` package's `elements[]` entry (azphalt `spec/composable.md`)
@@ -69,6 +82,8 @@ fun ShapeBadge(request: ComposableRequest) {
     Offer(act = request.act) {
         Box(
             modifier = Modifier
+                .tell(owesTell, weight)
+                .clickable { engage() }
                 .size(64.dp)
                 .clip(shape)
                 .background(ExpressiveRole.containerOf(request.rank)),
@@ -84,10 +99,12 @@ fun ShapeBadge(request: ComposableRequest) {
 }
 
 /**
- * A rectangular [ExpressiveSurface]-shaped tile, [ComposableRequest.label] set at [titleMedium]
- * (or [ComposableRequest.scale] if given a real type-role name) with [ComposableRequest.subtitle]
- * beneath it at [bodyMedium] -- the same title+detail two-line form `conveyance-h2g2`'s
- * `h2g2.tile.record` offers, in M3's own type scale.
+ * A rectangular [ExpressiveSurface]-shaped tile, [ComposableRequest.label] set at
+ * [ExpressiveType.step] of [ComposableRequest.scale] -- [ExpressiveType.bodyMedium] for any scale
+ * name [ExpressiveType.step] doesn't recognize, the same fallback every other template in this
+ * registry gets -- with [ComposableRequest.subtitle] beneath it at [ExpressiveType.bodyMedium]
+ * always. The same title+detail two-line form `conveyance-h2g2`'s `h2g2.tile.record` offers, in
+ * M3's own type scale.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -98,6 +115,8 @@ fun TitleTile(request: ComposableRequest) {
     Offer(act = request.act, modifier = Modifier.wrapContentSize()) {
         Box(
             modifier = Modifier
+                .tell(owesTell, weight)
+                .clickable { engage() }
                 .clip(shape)
                 .background(ExpressiveRole.containerOf(request.rank))
                 .padding(horizontal = 20.dp, vertical = 14.dp),
@@ -113,14 +132,26 @@ fun TitleTile(request: ComposableRequest) {
     }
 }
 
-/** A [Shape] that morphs between two [androidx.graphics.shapes.RoundedPolygon]s at [progress]. */
+/**
+ * A [Shape] that morphs between two [androidx.graphics.shapes.RoundedPolygon]s at [progress].
+ *
+ * Maps the morphed path's own *measured* bounds onto `(0,0)-(size.width,size.height)`, the same
+ * way material3's real [androidx.compose.material3.toShape] does it for a single (non-morphing)
+ * [androidx.graphics.shapes.RoundedPolygon] -- rather than assuming a fixed coordinate range. A
+ * hardcoded "normalized polygons live in [-1,1]" assumption is exactly what broke this class
+ * before: every `MaterialShapes` polygon is actually `.normalized()`-ed into `(0,0)-(1,1)`, not
+ * `(-1,1)`, so that assumption put the whole shape in this box's bottom-right quadrant only.
+ */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 private class MorphShape(private val morph: Morph, private val progress: Float) : Shape {
     override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
         val path = morph.toPath(progress = progress)
+        val bounds = path.getBounds()
+        val scaleX = if (bounds.width > 0f) size.width / bounds.width else 1f
+        val scaleY = if (bounds.height > 0f) size.height / bounds.height else 1f
         val matrix = Matrix().apply {
-            scale(size.width / 2f, size.height / 2f)
-            translate(1f, 1f)
+            scale(scaleX, scaleY)
+            translate(-bounds.left, -bounds.top)
         }
         path.transform(matrix)
         return Outline.Generic(path)
@@ -128,17 +159,22 @@ private class MorphShape(private val morph: Morph, private val progress: Float) 
 }
 
 private const val SETTLE_MORPH_MILLIS = 500
+private const val INDEFINITE_PULSE_MILLIS = 900
 
 /**
  * An [Offer]-backed control whose clip shape morphs from its resting [ExpressiveSurface] shape
  * toward [ExpressiveSurface.cookie] while the act is
  * [com.hereliesaz.conveyance.ActState.Yielding] -- the only state that carries a live progress
- * value ([com.hereliesaz.conveyance.compose.ActScope.yielding]) -- driven live off that value, no
- * timer of its own. Once [com.hereliesaz.conveyance.ActState.Settled], a *second*, independent
- * morph takes over: from the fully busy shape (not wherever the live yield progress happened to
- * be an instant before settling -- `Settled` carries no progress value of its own to interpolate
- * from) toward [ExpressiveSurface.heart], animated smoothly over [SETTLE_MORPH_MILLIS] rather
- * than snapped. Snaps back to the plain resting shape at any other state. This is chrome reacting to the framework's own exposed state, not a replacement for the
+ * value ([com.hereliesaz.conveyance.compose.ActScope.yielding]) -- driven live off that value
+ * when it's known. When it's `null` -- work whose end isn't known -- the deformation is rhythmic
+ * instead: a continuous, self-driven pulse between the resting and busy shape, so an indefinite
+ * wait still visibly reads as "something is happening" rather than sitting on the plain resting
+ * shape indistinguishable from `Ready`. Once [com.hereliesaz.conveyance.ActState.Settled], a
+ * *third*, independent morph takes over: from the fully busy shape (not wherever the live/pulsed
+ * yield progress happened to be an instant before settling -- `Settled` carries no progress value
+ * of its own to interpolate from) toward [ExpressiveSurface.heart], animated smoothly over
+ * [SETTLE_MORPH_MILLIS] rather than snapped. Snaps back to the plain resting shape at any other
+ * state. This is chrome reacting to the framework's own exposed state, not a replacement for the
  * framework's motion: the *position*/opacity/etc. [com.hereliesaz.conveyance.Signature] still
  * belongs to Conveyance; only the *shape* belongs to this template.
  */
@@ -150,6 +186,16 @@ fun MorphControl(request: ComposableRequest) {
     val resolved = ExpressiveSurface.heart
     val busyMorph = remember(rest, busy) { Morph(rest, busy) }
     val settleMorph = remember(busy, resolved) { Morph(busy, resolved) }
+    val pulseTransition = rememberInfiniteTransition(label = "morph-pulse")
+    val pulse by pulseTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            tween(INDEFINITE_PULSE_MILLIS, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "pulse",
+    )
     Offer(act = request.act) {
         val settleProgress = remember { Animatable(0f) }
         LaunchedEffect(state) {
@@ -162,10 +208,16 @@ fun MorphControl(request: ComposableRequest) {
         val shape = if (settleProgress.value > 0f) {
             MorphShape(settleMorph, settleProgress.value)
         } else {
-            MorphShape(busyMorph, yielding ?: 0f)
+            // 0f (plain rest shape) at any state that isn't Yielding, matching the doc's "snaps
+            // back to the plain resting shape at any other state" -- `pulse` only ever substitutes
+            // for a genuinely Yielding-but-unknown-extent act, never for Ready/Blocked.
+            val busyProgress = (state as? ActState.Yielding)?.let { it.extent ?: pulse } ?: 0f
+            MorphShape(busyMorph, busyProgress)
         }
         Box(
             modifier = Modifier
+                .tell(owesTell, weight)
+                .clickable { engage() }
                 .size(64.dp)
                 .clip(shape)
                 .background(ExpressiveRole.containerOf(request.rank)),
@@ -180,25 +232,47 @@ fun MorphControl(request: ComposableRequest) {
     }
 }
 
-private val ACCENT_OFFSET = 22.dp
-private val ACCENT_SIZE = 40.dp
 private val PRIMARY_SIZE = 64.dp
+private val ACCENT_SIZE = 40.dp
 
-/** The rank a [CompoundBadge]'s accent shape borrows its color from -- a fixed rotation so the accent always reads as a distinct role from the primary shape's own [ExpressiveRole.containerOf]. */
-private fun accentRankFor(rank: String): String = when (rank) {
-    "primary" -> "tertiary"
-    "secondary" -> "primary"
+/** The accent's own top-left, chosen so its *center* lands on the primary shape's bottom-right
+ *  corner: half of it sits under the primary (the "peeking from behind" read), half genuinely
+ *  extends past the primary's own footprint -- not fully contained inside it. */
+private val ACCENT_OFFSET = PRIMARY_SIZE - ACCENT_SIZE / 2
+private val COMPOUND_SIZE = ACCENT_OFFSET + ACCENT_SIZE
+
+/**
+ * [containerOf][ExpressiveRole.containerOf]/[onContainerOf][ExpressiveRole.onContainerOf]
+ * recognize exactly three ranks and fall back to `"secondary"` for anything else -- reproduced
+ * here so [accentRankFor]'s own rotation is applied to the *same* effective bucket
+ * [ExpressiveRole.containerOf] will actually resolve, rather than to the raw manifest string. An
+ * out-of-vocabulary `rank` string still needs the accent to land on a role distinct from the
+ * primary's, and the primary's own out-of-vocabulary role is always `secondaryContainer`.
+ */
+private fun normalizedRank(rank: String): String = when (rank) {
+    "primary" -> "primary"
+    "tertiary" -> "tertiary"
     else -> "secondary"
+}
+
+/** The rank a [CompoundBadge]'s accent shape borrows its color from -- a true 3-cycle over
+ *  [normalizedRank]'s three buckets, so the accent's resolved container always differs from the
+ *  primary's own, for every possible `rank` string including an out-of-vocabulary one. */
+private fun accentRankFor(rank: String): String = when (normalizedRank(rank)) {
+    "primary" -> "tertiary"
+    "tertiary" -> "secondary"
+    else -> "primary"
 }
 
 /**
  * A compound badge: a smaller accent [ExpressiveSurface] polygon peeking from behind the primary
- * shape, offset toward its bottom-right corner and drawn in a different [ExpressiveRole] than the
- * primary shape's own -- the layered-shape composition M3 Expressive's own reference material
- * uses rather than a single polygon standing alone. The accent is always
- * [ExpressiveSurface.burst] (or [ExpressiveSurface.spark] when the primary shape *is* `burst`,
- * so the two are never identical) -- a fixed choice, not selectable per element, since nothing in
- * the manifest's `surface`/`hue`/`scale` vocabulary names a second shape.
+ * shape -- its own center offset onto the primary shape's bottom-right corner, so half of it sits
+ * hidden under the primary and half genuinely extends past the primary's own footprint, drawn in
+ * a different [ExpressiveRole] than the primary shape's own -- the layered-shape composition M3
+ * Expressive's own reference material uses rather than a single polygon standing alone. The
+ * accent is always [ExpressiveSurface.burst] (or [ExpressiveSurface.spark] when the primary shape
+ * *is* `burst`, so the two are never identical) -- a fixed choice, not selectable per element,
+ * since nothing in the manifest's `surface`/`hue`/`scale` vocabulary names a second shape.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -210,7 +284,10 @@ fun CompoundBadge(request: ComposableRequest) {
 
     Offer(act = request.act) {
         Box(
-            modifier = Modifier.size(PRIMARY_SIZE + ACCENT_OFFSET),
+            modifier = Modifier
+                .tell(owesTell, weight)
+                .clickable { engage() }
+                .size(COMPOUND_SIZE),
             contentAlignment = Alignment.TopStart,
         ) {
             Box(

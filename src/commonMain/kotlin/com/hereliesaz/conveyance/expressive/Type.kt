@@ -7,10 +7,14 @@ import androidx.compose.ui.unit.sp
 
 /**
  * M3's real fifteen-step type scale -- five roles (Display/Headline/Title/Body/Label) times three
- * sizes (Large/Medium/Small), values as specified by Material Design 3, not invented here. [family]
- * defaults to [FontFamily.Default]; M3's own default is Roboto specifically, but bundling that
- * typeface's font files is a per-host asset decision this library doesn't make for you, the same
- * choice `conveyance-h2g2` makes for Jost.
+ * sizes (Large/Medium/Small), values as specified by Material Design 3, not invented here --
+ * matching the exact `material3` version this library pins
+ * (`gradle/libs.versions.toml`), including that version's M3 Expressive token revision
+ * (`displayLarge`/`titleMedium`/`bodyMedium`'s letter-spacing changed from the "classic" M3 spec
+ * numbers in that revision; this scale tracks the pinned version, not an older cached copy).
+ * [family] defaults to [FontFamily.Default]; M3's own default is Roboto specifically, but
+ * bundling that typeface's font files is a per-host asset decision this library doesn't make for
+ * you, the same choice `conveyance-h2g2` makes for Jost.
  */
 data class ExpressiveType(
     val displayLarge: TextStyle,
@@ -33,7 +37,7 @@ data class ExpressiveType(
 fun expressiveType(family: FontFamily = FontFamily.Default): ExpressiveType = ExpressiveType(
     displayLarge = TextStyle(
         fontFamily = family, fontWeight = FontWeight.Normal,
-        fontSize = 57.sp, lineHeight = 64.sp, letterSpacing = (-0.25).sp,
+        fontSize = 57.sp, lineHeight = 64.sp, letterSpacing = (-0.2).sp,
     ),
     displayMedium = TextStyle(
         fontFamily = family, fontWeight = FontWeight.Normal,
@@ -61,7 +65,7 @@ fun expressiveType(family: FontFamily = FontFamily.Default): ExpressiveType = Ex
     ),
     titleMedium = TextStyle(
         fontFamily = family, fontWeight = FontWeight.Medium,
-        fontSize = 16.sp, lineHeight = 24.sp, letterSpacing = 0.15.sp,
+        fontSize = 16.sp, lineHeight = 24.sp, letterSpacing = 0.2.sp,
     ),
     titleSmall = TextStyle(
         fontFamily = family, fontWeight = FontWeight.Medium,
@@ -73,7 +77,7 @@ fun expressiveType(family: FontFamily = FontFamily.Default): ExpressiveType = Ex
     ),
     bodyMedium = TextStyle(
         fontFamily = family, fontWeight = FontWeight.Normal,
-        fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.25.sp,
+        fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.2.sp,
     ),
     bodySmall = TextStyle(
         fontFamily = family, fontWeight = FontWeight.Normal,

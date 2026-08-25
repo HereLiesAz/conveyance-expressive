@@ -2,9 +2,16 @@ package com.hereliesaz.conveyance.expressive
 
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialShapes
-import androidx.compose.material3.toShape
-import androidx.compose.runtime.Composable
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.center
+import androidx.compose.ui.graphics.Matrix
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.graphics.shapes.Cubic
 import androidx.graphics.shapes.RoundedPolygon
 
 /**
@@ -79,6 +86,44 @@ object ExpressiveSurface {
     fun byName(name: String): RoundedPolygon = byNameMap[name] ?: circle
 
     /** [byName] converted to a static Compose [Shape], for a non-morphing element. */
-    @Composable
-    fun shapeOf(name: String): Shape = byName(name).toShape()
+    fun shapeOf(name: String): Shape = RoundedPolygonShape(byName(name))
+}
+
+/**
+ * Builds [path] from a Bezier-cubic outline (as returned by [RoundedPolygon.cubics] or
+ * [androidx.graphics.shapes.Morph.asCubics]), rewound and closed. Written locally rather than
+ * reused from material3's own (near-identical) internal helper of the same name: material3's
+ * public `toPath()`/`toShape()` default their own `Path()`, one that resolves, off Android, to a
+ * stub implementation that throws `NotImplementedError` -- that default is baked into material3's
+ * own compiled bytecode and unavoidable through those entry points. Mutating a caller-supplied
+ * real [Path] through nothing but its own public interface methods sidesteps that entirely.
+ */
+internal fun pathFromCubics(path: Path, cubics: List<Cubic>): Path {
+    path.rewind()
+    cubics.forEachIndexed { index, cubic ->
+        if (index == 0) path.moveTo(cubic.anchor0X, cubic.anchor0Y)
+        path.cubicTo(
+            cubic.control0X, cubic.control0Y,
+            cubic.control1X, cubic.control1Y,
+            cubic.anchor1X, cubic.anchor1Y,
+        )
+    }
+    path.close()
+    return path
+}
+
+/** A static (non-morphing) [Shape] for one [RoundedPolygon], scaled to fill its assigned box. */
+internal class RoundedPolygonShape(polygon: RoundedPolygon) : Shape {
+    private val shapePath: Path = pathFromCubics(Path(), polygon.cubics)
+
+    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
+        val path = Path().apply { addPath(shapePath) }
+        path.transform(Matrix().apply { scale(x = size.width, y = size.height) })
+        // Recenter on the box rather than assuming the scaled path already sits at (0,0):
+        // MaterialShapes polygons are `.normalized()`-ed into (0,0)-(1,1), but not perfectly
+        // centered there for every one of the 35 shapes.
+        val bounds = path.getBounds()
+        path.translate(Offset(size.width / 2f - bounds.center.x, size.height / 2f - bounds.center.y))
+        return Outline.Generic(path)
+    }
 }

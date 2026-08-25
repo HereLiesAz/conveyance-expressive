@@ -16,8 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.toPath
-import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -28,6 +26,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
@@ -143,9 +142,14 @@ fun TitleTile(request: ComposableRequest) {
  * `(-1,1)`, so that assumption put the whole shape in this box's bottom-right quadrant only.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
-private class MorphShape(private val morph: Morph, private val progress: Float) : Shape {
+internal class MorphShape(private val morph: Morph, private val progress: Float) : Shape {
     override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
-        val path = morph.toPath(progress = progress)
+        // Built from the Morph's own cubics via this package's own pathFromCubics rather than
+        // material3's toPath() -- material3's toPath() defaults its own Path() when the caller
+        // omits *any* parameter (here, startAngle), which off Android resolves to a JVM-stub
+        // implementation that throws NotImplementedError; that default is baked into material3's
+        // own compiled bytecode and unavoidable through that entry point.
+        val path = pathFromCubics(Path(), morph.asCubics(progress))
         val bounds = path.getBounds()
         val scaleX = if (bounds.width > 0f) size.width / bounds.width else 1f
         val scaleY = if (bounds.height > 0f) size.height / bounds.height else 1f
@@ -175,7 +179,7 @@ private const val INDEFINITE_PULSE_MILLIS = 900
  * of its own to interpolate from) toward [ExpressiveSurface.heart], animated smoothly over
  * [SETTLE_MORPH_MILLIS] rather than snapped. Snaps back to the plain resting shape at any other
  * state. This is chrome reacting to the framework's own exposed state, not a replacement for the
- * framework's motion: the *position*/opacity/etc. [com.hereliesaz.conveyance.Signature] still
+ * framework's motion: the `position`/`opacity`/etc. [com.hereliesaz.conveyance.Signature] still
  * belongs to Conveyance; only the *shape* belongs to this template.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -249,7 +253,7 @@ private val COMPOUND_SIZE = ACCENT_OFFSET + ACCENT_SIZE
  * out-of-vocabulary `rank` string still needs the accent to land on a role distinct from the
  * primary's, and the primary's own out-of-vocabulary role is always `secondaryContainer`.
  */
-private fun normalizedRank(rank: String): String = when (rank) {
+internal fun normalizedRank(rank: String): String = when (rank) {
     "primary" -> "primary"
     "tertiary" -> "tertiary"
     else -> "secondary"
@@ -258,7 +262,7 @@ private fun normalizedRank(rank: String): String = when (rank) {
 /** The rank a [CompoundBadge]'s accent shape borrows its color from -- a true 3-cycle over
  *  [normalizedRank]'s three buckets, so the accent's resolved container always differs from the
  *  primary's own, for every possible `rank` string including an out-of-vocabulary one. */
-private fun accentRankFor(rank: String): String = when (normalizedRank(rank)) {
+internal fun accentRankFor(rank: String): String = when (normalizedRank(rank)) {
     "primary" -> "tertiary"
     "tertiary" -> "secondary"
     else -> "primary"
@@ -279,7 +283,7 @@ private fun accentRankFor(rank: String): String = when (normalizedRank(rank)) {
 fun CompoundBadge(request: ComposableRequest) {
     val primaryShape = ExpressiveSurface.shapeOf(request.surface)
     val accentPolygon = if (request.surface == "burst") ExpressiveSurface.spark else ExpressiveSurface.burst
-    val accentShape = accentPolygon.toShape()
+    val accentShape = RoundedPolygonShape(accentPolygon)
     val accentRank = accentRankFor(request.rank)
 
     Offer(act = request.act) {

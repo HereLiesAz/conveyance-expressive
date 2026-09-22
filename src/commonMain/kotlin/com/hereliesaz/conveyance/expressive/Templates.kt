@@ -240,8 +240,15 @@ private val PRIMARY_SIZE = 64.dp
 private val ACCENT_SIZE = 40.dp
 
 /** The accent's own top-left, chosen so its *center* lands on the primary shape's bottom-right
- *  corner: half of it sits under the primary (the "peeking from behind" read), half genuinely
- *  extends past the primary's own footprint -- not fully contained inside it. */
+ *  corner: one quadrant of it sits under the primary (the "peeking from behind" read) and the
+ *  other three extend past the primary's own footprint -- not fully contained inside it.
+ *
+ *  The arithmetic, since the "half and half" this comment used to claim is not what a corner-
+ *  centered offset produces: the primary occupies `(0,0)..(64,64)`, and with
+ *  `ACCENT_OFFSET = 64 - 40/2 = 44` the accent occupies `(44,44)..(84,84)`. They intersect over
+ *  `20 x 20 = 400` dp^2 of the accent's own `40 x 40 = 1600` dp^2 -- 25% hidden, 75% extending.
+ *  (Bounding boxes; both boxes are then clipped to their polygons, so the true overlap of the
+ *  rendered shapes is smaller still.) */
 private val ACCENT_OFFSET = PRIMARY_SIZE - ACCENT_SIZE / 2
 private val COMPOUND_SIZE = ACCENT_OFFSET + ACCENT_SIZE
 
@@ -270,8 +277,9 @@ internal fun accentRankFor(rank: String): String = when (normalizedRank(rank)) {
 
 /**
  * A compound badge: a smaller accent [ExpressiveSurface] polygon peeking from behind the primary
- * shape -- its own center offset onto the primary shape's bottom-right corner, so half of it sits
- * hidden under the primary and half genuinely extends past the primary's own footprint, drawn in
+ * shape -- its own center offset onto the primary shape's bottom-right corner, so a quarter of it
+ * sits hidden under the primary and the remaining three quarters genuinely extend past the
+ * primary's own footprint (see [ACCENT_OFFSET] for the arithmetic), drawn in
  * a different [ExpressiveRole] than the primary shape's own -- the layered-shape composition M3
  * Expressive's own reference material uses rather than a single polygon standing alone. The
  * accent is always [ExpressiveSurface.burst] (or [ExpressiveSurface.spark] when the primary shape

@@ -58,8 +58,9 @@ Example composable manifest referencing this library:
   - `expressive.badge.shape` -- a static labeled polygon badge.
   - `expressive.badge.compound` -- a smaller accent polygon (`burst`, or `spark` when the
     primary shape *is* `burst`) peeking from behind the primary shape -- its own center offset
-    onto the primary's bottom-right corner, so half of it sits hidden and half genuinely extends
-    past the primary's footprint -- in a different `ExpressiveRole` than the primary's own -- the
+    onto the primary's bottom-right corner, so a quarter of it sits hidden and the other three
+    quarters genuinely extend past the primary's footprint (64dp primary, 40dp accent offset by
+    44dp: a 20x20 overlap out of the accent's 40x40) -- in a different `ExpressiveRole` than the primary's own -- the
     layered-shape composition M3 Expressive's own reference material uses, rather than one
     polygon standing alone.
   - `expressive.tile.title` -- a rectangular polygon tile, title+`subtitle` two-line form -- the

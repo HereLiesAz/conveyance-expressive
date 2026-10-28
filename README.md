@@ -113,7 +113,7 @@ repositories {
     maven("https://jitpack.io")
 }
 dependencies {
-    implementation("com.github.HereLiesAz:conveyance-expressive:0.5.0")
+    implementation("com.github.HereLiesAz:conveyance-expressive:0.5.1")
 }
 ```
 
